@@ -7,7 +7,7 @@ CXXFLAGS = -Wall -Wextra -std=c++17 -DVERSION=\"$(VERSION)\" -DAUTHOR=\"$(AUTHOR
 TARGET = gsr
 SRC = gsr.cpp
 
-@$(TARGET): $(SRC)
+$(TARGET): $(SRC)
 	@$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 	@strip $(TARGET)
 
