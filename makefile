@@ -9,8 +9,6 @@ SRC = gsr.cpp
 
 $(TARGET): $(SRC)
 	@$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
-	@strip $(TARGET)
-
 
 PREFIX = $(HOME)/.local
 
