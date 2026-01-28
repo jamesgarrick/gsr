@@ -5,7 +5,6 @@ INSTALL_DIR="${HOME}/.local/bin"
 BINARY_NAME="gsr"
 
 # Build
-echo "Building ${BINARY_NAME}..."
 make
 
 # Install binary
@@ -53,4 +52,4 @@ else
 fi
 
 echo ""
-echo "✓ ${BINARY_NAME} installed successfully!"
+echo "${BINARY_NAME} installed"

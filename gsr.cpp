@@ -1,19 +1,14 @@
 #include "vector"
 #include <algorithm>
-
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <getopt.h>
-#include <iostream>
 #include <sstream>
-#include <string>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <unordered_map>
-#include <filesystem>
 #include <utility>
-
 #include <filesystem>
 #include <regex>
 #include <string>
@@ -33,7 +28,33 @@ const unordered_map<string, vector<string>> class_data{
     {"302/1",
      {"./lib_info.cpp", "./lib_info", "~jplank/cs302/Labs/Lab1/"}},
     {"302/2",
-     {"make", "bin/lab_2", "~jplank/cs302/Labs/Lab2/"}}};
+     {"make", "", "~jplank/cs302/Labs/Lab2/"}},
+    // cs202
+    {"202/0",
+     {"make", "", "~jplank/cs202/Labs/Lab0/"}},
+    {"202/1",
+     {"make", "", "~jplank/cs202/Labs/Lab1/"}},
+    {"202/2",
+     {"make", "", "~jplank/cs202/Labs/Lab2/"}},
+    {"202/3",
+     {"make", "", "~jplank/cs202/Labs/Lab3/"}},
+    {"202/4",
+     {"make", "", "~jplank/cs202/Labs/Lab4/"}},
+    {"202/5",
+     {"make", "", "~jplank/cs202/Labs/Lab5/"}},
+    {"202/6",
+     {"make", "", "~jplank/cs202/Labs/Lab6/"}},
+    {"202/7",
+     {"make", "", "~jplank/cs202/Labs/Lab7/"}},
+    {"202/8",
+     {"make", "", "~jplank/cs202/Labs/Lab8/"}},
+    {"202/9",
+     {"make", "", "~jplank/cs202/Labs/Lab9/"}},
+    {"202/A",
+     {"make", "", "~jplank/cs202/Labs/LabA/"}},
+    {"202/B",
+     {"make", "", "~jplank/cs202/Labs/LabB/"}}
+};
 }
 
 struct LabInfo {
@@ -48,7 +69,7 @@ LabInfo detect_lab_directory(const std::filesystem::path& cwd) {
     // cs302, CS302, 302
     regex course_pattern(R"((?:cs|CS)?(\d{3}))", regex::icase);
     // lab1, Lab1, 1
-    regex lab_pattern(R"((?:lab)?(\d+))", regex::icase);
+    regex lab_pattern(R"((?:lab)?(\d+|[ab]))", regex::icase);
 
     smatch match;
 
@@ -61,7 +82,9 @@ LabInfo detect_lab_directory(const std::filesystem::path& cwd) {
         }
         // lab number
         else if (info.lab.empty() && std::regex_match(component, match, lab_pattern)) {
-            info.lab = match[1];
+            string lab = match[1];
+            transform(lab.begin(), lab.end(), lab.begin(), ::toupper);
+            info.lab = lab;
         }
     }
 
