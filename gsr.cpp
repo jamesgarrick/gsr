@@ -35,6 +35,7 @@
 #define RESET "\033[0m"
 #define MAX_DIFF_LINES 9999
 #define COMPILE_OPTS "g++ -Wall -Wextra -std=c++11 -o"
+#define AUTO_UPDATE_CHECK_INTERVAL_HOURS 24
 
 #ifndef VERSION
 #define VERSION "unknown"
@@ -272,14 +273,13 @@ void display_diff(ifstream &yours, ifstream &correct,
 }
 
 void self_update() {
-    // Get latest release info
     auto [json, status] = exec_output("curl -s https://api.github.com/repos/jamesgarrick/gsr/releases/latest");
     if (status != 0) {
         cerr << "Failed to check for updates" << endl;
         return;
     }
 
-    // Crude JSON parsing for tag_name
+    // parse json for tag
     size_t pos = json.find("\"tag_name\"");
     if (pos == string::npos) {
         cerr << "No releases found" << endl;
@@ -308,7 +308,7 @@ void self_update() {
     string temp_path = install_path + "~";
     string url = "https://github.com/jamesgarrick/gsr/releases/download/" + latest + "/gsr";
 
-    // Download new binary
+    // download new version
     cout << "Downloading..." << endl;
     string dl_cmd = "curl -sL " + url + " -o " + temp_path;
     auto [dl_out, dl_status] = exec_output(dl_cmd);
@@ -318,14 +318,51 @@ void self_update() {
         return;
     }
 
-    // Make executable
+    // make executable
     chmod(temp_path.c_str(), 0755);
 
-    // Swap: delete old, rename new
+    // swap with old version
     remove(install_path.c_str());
     rename(temp_path.c_str(), install_path.c_str());
 
     cout << "Updated to " << latest << endl;
+}
+
+void check_for_update() {
+    string cache_dir = string(getenv("HOME")) + "/.cache/gsr";
+    string timestamp_file = cache_dir + "/last_update_check";
+
+    // create cache if doesnt exist
+    mkdir(cache_dir.c_str(), 0755);
+
+    struct stat st;
+    if (stat(timestamp_file.c_str(), &st) == 0) {
+        time_t now = time(nullptr);
+        time_t last_check = st.st_mtime;
+        double hours = difftime(now, last_check) / 3600.0;
+
+        if (hours < AUTO_UPDATE_CHECK_INTERVAL_HOURS) {
+            return;
+        }
+    }
+
+    ofstream(timestamp_file).close();
+
+    // check for new release
+    auto [json, status] = exec_output("curl -s --max-time 2 https://api.github.com/repos/jamesgarrick/gsr/releases/latest 2>/dev/null");
+    if (status != 0) return;
+
+    // get tag
+    size_t pos = json.find("\"tag_name\"");
+    if (pos == string::npos) return;
+    size_t start = json.find("\"", pos + 10) + 1;
+    size_t end = json.find("\"", start);
+    string latest = json.substr(start, end - start);
+
+    if (latest != VERSION && !latest.empty()) {
+        cerr << "Update available: " << VERSION << " -> " << latest
+             << " (run gsr -u to update)\n\n";
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -371,6 +408,8 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
+
+  check_for_update();
 
   unordered_map<string, vector<string>>::const_iterator lab_file_it;
   string lab_file;
