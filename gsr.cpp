@@ -20,11 +20,19 @@
 #define RED_HIGHLIGHT "\033[31;47m"
 #define RESET "\033[0m"
 
+#ifndef VERSION
+#define VERSION "unknown"
+#endif
+#ifndef AUTHOR
+#define AUTHOR "unknown"
+#endif
+
 using namespace std;
 
 namespace {
 const unordered_map<string, vector<string>> class_data{
     // initial file, executable,gradescript path
+    // cs302
     {"302/1",
      {"./lib_info.cpp", "./lib_info", "~jplank/cs302/Labs/Lab1/"}},
     {"302/2",
@@ -199,11 +207,12 @@ int main(int argc, char *argv[]) {
                                          {"all", no_argument, nullptr, 'y'},
                                          {"single", no_argument, nullptr, 's'},
                                          {"help", no_argument, nullptr, 'h'},
+                                         {"version", no_argument, nullptr, 'v'},
                                          {nullptr, 0, nullptr, 0}};
 
   int opt;
 
-  while ((opt = getopt_long(argc, argv, "ays:o:h", long_options, nullptr)) !=
+  while ((opt = getopt_long(argc, argv, "aysvh", long_options, nullptr)) !=
          -1) {
     switch (opt) {
     case 'a':
@@ -220,6 +229,9 @@ int main(int argc, char *argv[]) {
            << "  -a, --all, -y     Show all lines\n"
            << "  -s, --single      Show only one diff\n";
            // gradescript# == 0 = run_all
+      return 0;
+    case 'v':
+      cout << VERSION << endl;
       return 0;
     default:
       return 1;
