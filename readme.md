@@ -9,7 +9,13 @@
 
 ## Installation
 
+Clone git repository:
 ```bash
+git clone https://github.com/jamesgarrick/gsr.git
+```
+Install gsr with:
+```bash
+cd gsr
 ./install.sh
 ```
 
