@@ -14,6 +14,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdio>
+#include <sys/stat.h>
 #include <cstdlib>
 #include <fstream>
 #include <getopt.h>
@@ -270,6 +271,63 @@ void display_diff(ifstream &yours, ifstream &correct,
     }
 }
 
+void self_update() {
+    // Get latest release info
+    auto [json, status] = exec_output("curl -s https://api.github.com/repos/jamesgarrick/gsr/releases/latest");
+    if (status != 0) {
+        cerr << "Failed to check for updates" << endl;
+        return;
+    }
+
+    // Crude JSON parsing for tag_name
+    size_t pos = json.find("\"tag_name\"");
+    if (pos == string::npos) {
+        cerr << "No releases found" << endl;
+        return;
+    }
+    size_t start = json.find("\"", pos + 10) + 1;
+    size_t end = json.find("\"", start);
+    string latest = json.substr(start, end - start);
+
+    if (latest == VERSION) {
+        cout << "Already up to date (" << VERSION << ")" << endl;
+        return;
+    }
+
+    cout << "Current: " << VERSION << " -> Latest: " << latest << endl;
+    cout << "Update? [y/N] ";
+
+    char c;
+    cin >> c;
+    if (tolower(c) != 'y') {
+        cout << "Cancelled" << endl;
+        return;
+    }
+
+    string install_path = string(getenv("HOME")) + "/.local/bin/gsr";
+    string temp_path = install_path + "~";
+    string url = "https://github.com/jamesgarrick/gsr/releases/download/" + latest + "/gsr";
+
+    // Download new binary
+    cout << "Downloading..." << endl;
+    string dl_cmd = "curl -sL " + url + " -o " + temp_path;
+    auto [dl_out, dl_status] = exec_output(dl_cmd);
+    if (dl_status != 0) {
+        cerr << "Download failed" << endl;
+        remove(temp_path.c_str());
+        return;
+    }
+
+    // Make executable
+    chmod(temp_path.c_str(), 0755);
+
+    // Swap: delete old, rename new
+    remove(install_path.c_str());
+    rename(temp_path.c_str(), install_path.c_str());
+
+    cout << "Updated to " << latest << endl;
+}
+
 int main(int argc, char *argv[]) {
   bool all_lines = false;
   bool single_diff = false;
@@ -279,11 +337,13 @@ int main(int argc, char *argv[]) {
                                          {"single", no_argument, nullptr, 's'},
                                          {"help", no_argument, nullptr, 'h'},
                                          {"version", no_argument, nullptr, 'v'},
+                                         {"update", no_argument, nullptr, 'u'},
+
                                          {nullptr, 0, nullptr, 0}};
 
   int opt;
 
-  while ((opt = getopt_long(argc, argv, "aysvh", long_options, nullptr)) !=
+  while ((opt = getopt_long(argc, argv, "aysvhu", long_options, nullptr)) !=
          -1) {
     switch (opt) {
     case 'a':
@@ -303,6 +363,9 @@ int main(int argc, char *argv[]) {
       return 0;
     case 'v':
       cout << VERSION << endl;
+      return 0;
+    case 'u':
+      self_update();
       return 0;
     default:
       return 1;
