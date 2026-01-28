@@ -1,6 +1,11 @@
-# gsr
 
-A gradescript runner for UTK CS courses. Compiles your code, runs gradescripts, and displays side-by-side diffs on failure.
+<div align="center">
+  <img width="400" height="240" alt="gsr" src="https://github.com/user-attachments/assets/aca9f169-a3f1-4c30-9557-b99a930f8c13" />
+</div>
+
+---
+
+**gsr** (gradescript runner) is a gradescript CLI tool UTK CS courses. It compiles your code, runs gradescripts, and displays failures side-by-side all in one step.
 
 ## Installation
 
