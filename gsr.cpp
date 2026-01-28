@@ -431,9 +431,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (argc - optind < 2 && !lab_found_auto) {
-    cout << "Usage: gsr [options] [class/lab] gradescript#\n";
-    return 1;
+  int required_args = lab_found_auto ? 1 : 2;
+  if (argc - optind < required_args) {
+      cout << "Usage: gsr [options] " << (lab_found_auto ? "" : "[class/lab] ") << "gradescript#\n";
+      return 1;
   }
   string gradescript_num;
 
