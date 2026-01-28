@@ -1,4 +1,17 @@
-#include "vector"
+/*
+ * gsr - gradescript runner
+ *
+ * Author: James Garrick
+ *
+ * gradescript runner is a gradescript CLI tool UTK CS courses.
+ * It compiles your code, runs gradescripts, and displays failures
+ * side-by-side all in one step.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the MIT License.
+ */
+
+#include <vector>
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -19,6 +32,8 @@
 #define RED_BOTH "\033[31;41m"
 #define RED_HIGHLIGHT "\033[31;47m"
 #define RESET "\033[0m"
+#define MAX_DIFF_LINES 9999
+#define COMPILE_OPTS "g++ -Wall -Wextra -std=c++11 -o"
 
 #ifndef VERSION
 #define VERSION "unknown"
@@ -118,7 +133,7 @@ pair<string, int> exec_output(const string &cmd, bool printout = false) {
   while (fgets(buffer, sizeof(buffer), pipe)) {
     result += buffer;
     if (printout) {
-      cout << result;
+      cout << buffer;
     }
   }
   int status = pclose(pipe);
@@ -198,6 +213,62 @@ auto diff_strings = [](const std::string &a, const std::string &b) {
 
   return std::make_tuple(a_out, b_out, a_extra, b_extra);
 };
+
+void display_diff(ifstream &yours, ifstream &correct,
+                  const string &yours_label, const string &correct_label,
+                  bool all_lines, bool single_diff) {
+    string y_line, c_line;
+    bool diff_found = false;
+    int line_number = 0;
+    int width = get_terminal_width();
+    int col_width = (width - 5) / 2;
+
+    auto wrap = [col_width](const string &s) {
+        vector<string> chunks;
+        for (size_t i = 0; i < s.size(); i += col_width) {
+            chunks.push_back(s.substr(i, col_width));
+        }
+        if (chunks.empty())
+            chunks.push_back("");
+        return chunks;
+    };
+
+    while (line_number < MAX_DIFF_LINES) {
+        if (!getline(yours, y_line) || !getline(correct, c_line))
+            break;
+
+        if (y_line != c_line || all_lines) {
+            if (!diff_found) {
+                int l_pad = col_width - (int)yours_label.size();
+                int r_pad = col_width - (int)correct_label.size();
+                printf("%s%*s     %s%*s\n", yours_label.c_str(), l_pad, "",
+                       correct_label.c_str(), r_pad, "");
+                diff_found = true;
+            }
+
+            vector<string> left = wrap(y_line);
+            vector<string> right = wrap(c_line);
+            size_t max_rows = max(left.size(), right.size());
+
+            for (size_t i = 0; i < max_rows; i++) {
+                string l = (i < left.size()) ? left[i] : "";
+                string r = (i < right.size()) ? right[i] : "";
+
+                auto [l_out, r_out, l_extra, r_extra] = diff_strings(l, r);
+
+                int l_pad = col_width - (int)l.size() - l_extra;
+                int r_pad = col_width - (int)r.size() - r_extra;
+
+                printf("%s%*s  |  %s%*s\n", l_out.c_str(), l_pad, "",
+                       r_out.c_str(), r_pad, "");
+
+                if (single_diff)
+                    exit(0);
+            }
+        }
+        line_number++;
+    }
+}
 
 int main(int argc, char *argv[]) {
   bool all_lines = false;
@@ -290,7 +361,7 @@ int main(int argc, char *argv[]) {
     }
   } else {
     auto [compile_output, compile_status] = exec_output(
-        "g++ -Wall -Wextra -std=c++11 -o " + program + " " + lab_file + " 2>&1");
+        COMPILE_OPTS + program + " " + lab_file + " 2>&1");
     if (compile_status != 0) {
       cerr << "Compilation failed:\n" << compile_output << endl;
       return 1;
@@ -343,144 +414,24 @@ int main(int argc, char *argv[]) {
   ifstream y_out_file(y_out);
   ifstream c_out_file(c_out);
 
-  // cout << y_out << endl;
-  // cout << y_err << endl;
-
-  bool end_of_out_file = false;
-  bool out_diff_found = false;
-  string y_out_line, c_out_line;
-  int out_line_number = 0;
-
   if (!y_out_file.is_open() || !c_out_file.is_open()) {
     cerr << "Error: could not access output files" << endl;
     return 1;
   }
 
-  while (end_of_out_file == false && out_line_number < 9999) {
-    if (!getline(y_out_file, y_out_line) || !getline(c_out_file, c_out_line)) {
-      end_of_out_file = true;
-      break;
-    }
-
-    if (y_out_line != c_out_line || all_lines) {
-      int width = get_terminal_width();
-      int col_width = (width - 5) / 2;
-
-      if (!out_diff_found) {
-        string l_text = "Your output:";
-        string r_text = "Correct output:";
-
-        int t_l_pad = col_width - (int)l_text.size();
-        int t_r_pad = col_width - (int)r_text.size();
-
-        printf("%s%*s     %s%*s\n", l_text.c_str(), t_l_pad, "", r_text.c_str(),
-               t_r_pad, "");
-
-        out_diff_found = true;
-      }
-
-      auto wrap = [col_width](const string &s) {
-        vector<string> chunks;
-        for (size_t i = 0; i < s.size(); i += col_width) {
-          chunks.push_back(s.substr(i, col_width));
-        }
-        if (chunks.empty())
-          chunks.push_back("");
-        return chunks;
-      };
-
-      vector<string> left = wrap(y_out_line);
-      vector<string> right = wrap(c_out_line);
-      size_t max_rows = max(left.size(), right.size());
-
-      for (size_t i = 0; i < max_rows; i++) {
-        std::string l = (i < left.size()) ? left[i] : "";
-        std::string r = (i < right.size()) ? right[i] : "";
-
-        auto [l_out, r_out, l_extra, r_extra] = diff_strings(l, r);
-
-        int l_pad = col_width - (int)l.size() - l_extra;
-        int r_pad = col_width - (int)r.size() - r_extra;
-
-        printf("%s%*s  |  %s%*s\n", l_out.c_str(), l_pad, "", r_out.c_str(),
-               r_pad, "");
-        // if (!all_lines) printf("\n");
-        if (single_diff)
-          exit(0);
-      }
-    }
-
-    out_line_number++;
-  }
+  display_diff(y_out_file, c_out_file, "Your output:", "Correct output:",
+               all_lines, single_diff);
 
   ifstream y_err_file(y_err);
   ifstream c_err_file(c_err);
-
-  bool end_of_err_file = false;
-  bool err_diff_found = false;
-  string y_err_line, c_err_line;
-  int err_line_number = 0;
 
   if (!y_err_file.is_open() || !c_err_file.is_open()) {
     cerr << "Error: could not access error files" << endl;
     return 1;
   }
 
-  while (end_of_err_file == false && err_line_number < 9999) {
-    if (!getline(y_err_file, y_err_line) || !getline(c_err_file, c_err_line)) {
-      end_of_err_file = true;
-      break;
-    }
-
-    if (y_err_line != c_err_line) {
-      int width = get_terminal_width();
-      int col_width = (width - 5) / 2;
-
-      if (!err_diff_found) {
-        string l_text = "Your error:";
-        string r_text = "Correct error:";
-
-        int t_l_pad = col_width - (int)l_text.size();
-        int t_r_pad = col_width - (int)r_text.size();
-
-        printf("%s%*s     %s%*s\n", l_text.c_str(), t_l_pad, "", r_text.c_str(),
-               t_r_pad, "");
-
-        err_diff_found = true;
-      }
-
-      auto wrap = [col_width](const string &s) {
-        vector<string> chunks;
-        for (size_t i = 0; i < s.size(); i += col_width) {
-          chunks.push_back(s.substr(i, col_width));
-        }
-        if (chunks.empty())
-          chunks.push_back("");
-        return chunks;
-      };
-
-      vector<string> left = wrap(y_err_line);
-      vector<string> right = wrap(c_err_line);
-      size_t max_rows = max(left.size(), right.size());
-
-      for (size_t i = 0; i < max_rows; i++) {
-        std::string l = (i < left.size()) ? left[i] : "";
-        std::string r = (i < right.size()) ? right[i] : "";
-
-        auto [l_err, r_err, l_extra, r_extra] = diff_strings(l, r);
-
-        int l_pad = col_width - (int)l.size() - l_extra;
-        int r_pad = col_width - (int)r.size() - r_extra;
-
-        printf("%s%*s  |  %s%*s\n", l_err.c_str(), l_pad, "", r_err.c_str(),
-               r_pad, "");
-        if (single_diff)
-          exit(0);
-      }
-    }
-
-    err_line_number++;
-  }
+  display_diff(y_err_file, c_err_file, "Your error:", "Correct error:",
+               all_lines, single_diff);
 
   return 0;
 }
