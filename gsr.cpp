@@ -11,22 +11,22 @@
  * modify it under the terms of the MIT License.
  */
 
-#include <vector>
 #include <algorithm>
 #include <cstdio>
-#include <sys/stat.h>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <getopt.h>
+#include <iostream>
+#include <regex>
 #include <sstream>
+#include <string>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <utility>
-#include <filesystem>
-#include <regex>
-#include <string>
-#include <iostream>
+#include <vector>
 
 #define RED "\033[31m"
 #define RED_BG "\033[41m"
@@ -50,71 +50,58 @@ namespace {
 const unordered_map<string, vector<string>> class_data{
     // initial file, executable,gradescript path
     // cs302
-    {"302/1",
-     {"./lib_info.cpp", "./lib_info", "~jplank/cs302/Labs/Lab1/"}},
-    {"302/2",
-     {"make", "", "~jplank/cs302/Labs/Lab2/"}},
+    {"302/1", {"./lib_info.cpp", "./lib_info", "~jplank/cs302/Labs/Lab1/"}},
+    {"302/2", {"make", "", "~jplank/cs302/Labs/Lab2/"}},
     // cs202
-    {"202/0",
-     {"make", "", "~jplank/cs202/Labs/Lab0/"}},
-    {"202/1",
-     {"make", "", "~jplank/cs202/Labs/Lab1/"}},
-    {"202/2",
-     {"make", "", "~jplank/cs202/Labs/Lab2/"}},
-    {"202/3",
-     {"make", "", "~jplank/cs202/Labs/Lab3/"}},
-    {"202/4",
-     {"make", "", "~jplank/cs202/Labs/Lab4/"}},
-    {"202/5",
-     {"make", "", "~jplank/cs202/Labs/Lab5/"}},
-    {"202/6",
-     {"make", "", "~jplank/cs202/Labs/Lab6/"}},
-    {"202/7",
-     {"make", "", "~jplank/cs202/Labs/Lab7/"}},
-    {"202/8",
-     {"make", "", "~jplank/cs202/Labs/Lab8/"}},
-    {"202/9",
-     {"make", "", "~jplank/cs202/Labs/Lab9/"}},
-    {"202/A",
-     {"make", "", "~jplank/cs202/Labs/LabA/"}},
-    {"202/B",
-     {"make", "", "~jplank/cs202/Labs/LabB/"}}
-};
+    {"202/0", {"make", "", "~jplank/cs202/Labs/Lab0/"}},
+    {"202/1", {"make", "", "~jplank/cs202/Labs/Lab1/"}},
+    {"202/2", {"make", "", "~jplank/cs202/Labs/Lab2/"}},
+    {"202/3", {"make", "", "~jplank/cs202/Labs/Lab3/"}},
+    {"202/4", {"make", "", "~jplank/cs202/Labs/Lab4/"}},
+    {"202/5", {"make", "", "~jplank/cs202/Labs/Lab5/"}},
+    {"202/6", {"make", "", "~jplank/cs202/Labs/Lab6/"}},
+    {"202/7", {"make", "", "~jplank/cs202/Labs/Lab7/"}},
+    {"202/8", {"make", "", "~jplank/cs202/Labs/Lab8/"}},
+    {"202/9", {"make", "", "~jplank/cs202/Labs/Lab9/"}},
+    {"202/A", {"make", "", "~jplank/cs202/Labs/LabA/"}},
+    {"202/B", {"make", "", "~jplank/cs202/Labs/LabB/"}}};
 }
 
 struct LabInfo {
-    std::string course;  // 302
-    std::string lab;     // 1
-    bool found = false;
+  std::string course; // 302
+  std::string lab;    // 1
+  bool found = false;
 };
 
-LabInfo detect_lab_directory(const std::filesystem::path& cwd) {
-    LabInfo info;
+LabInfo detect_lab_directory(const std::filesystem::path &cwd) {
+  LabInfo info;
 
-    // cs302, CS302, 302
-    regex course_pattern(R"((?:cs|CS)?(\d{3}))", regex::icase);
-    // lab1, Lab1, 1
-    regex lab_pattern(R"((?:lab)?(\d+|[ab]))", regex::icase);
+  // cs302, CS302, 302
+  regex course_pattern(R"((?:cs|CS)?(\d{3}))", regex::icase);
+  // lab1, Lab1, 1
+  regex lab_pattern(R"((?:lab)?(\d+|[ab]))", regex::icase);
 
-    smatch match;
+  smatch match;
 
-    for (const auto& part : cwd) {
-        string component = part.string();
+  for (const auto &part : cwd) {
+    string component = part.string();
 
-        // match course number
-        if (info.course.empty() && std::regex_match(component, match, course_pattern)) {
-            info.course = match[1];  // just number part
-        }
-        // lab number
-        else if (info.lab.empty() && std::regex_match(component, match, lab_pattern)) {
-            string lab = match[1];
-            transform(lab.begin(), lab.end(), lab.begin(), ::toupper);
-            info.lab = lab;
-        }
+    // match course number
+    if (info.course.empty() &&
+        std::regex_match(component, match, course_pattern)) {
+      info.course = match[1]; // just number part
     }
+    // lab number
+    else if (info.lab.empty() &&
+             std::regex_match(component, match, lab_pattern)) {
+      string lab = match[1];
+      transform(lab.begin(), lab.end(), lab.begin(), ::toupper);
+      info.lab = lab;
+    }
+  }
 
-    info.found = !info.course.empty() && !info.lab.empty();
-    return info;
+  info.found = !info.course.empty() && !info.lab.empty();
+  return info;
 }
 
 int get_terminal_width() {
@@ -216,153 +203,165 @@ auto diff_strings = [](const std::string &a, const std::string &b) {
   return std::make_tuple(a_out, b_out, a_extra, b_extra);
 };
 
-void display_diff(ifstream &yours, ifstream &correct,
-                  const string &yours_label, const string &correct_label,
-                  bool all_lines, bool single_diff) {
-    string y_line, c_line;
-    bool diff_found = false;
-    int line_number = 0;
-    int width = get_terminal_width();
-    int col_width = (width - 5) / 2;
+void display_diff(ifstream &yours, ifstream &correct, const string &yours_label,
+                  const string &correct_label, bool all_lines,
+                  bool single_diff) {
+  string y_line, c_line;
+  bool diff_found = false;
+  int line_number = 0;
+  int width = get_terminal_width();
+  int col_width = (width - 5) / 2;
 
-    auto wrap = [col_width](const string &s) {
-        vector<string> chunks;
-        for (size_t i = 0; i < s.size(); i += col_width) {
-            chunks.push_back(s.substr(i, col_width));
-        }
-        if (chunks.empty())
-            chunks.push_back("");
-        return chunks;
-    };
-
-    while (line_number < MAX_DIFF_LINES) {
-        if (!getline(yours, y_line) || !getline(correct, c_line))
-            break;
-
-        if (y_line != c_line || all_lines) {
-            if (!diff_found) {
-                int l_pad = col_width - (int)yours_label.size();
-                int r_pad = col_width - (int)correct_label.size();
-                printf("%s%*s     %s%*s\n", yours_label.c_str(), l_pad, "",
-                       correct_label.c_str(), r_pad, "");
-                diff_found = true;
-            }
-
-            vector<string> left = wrap(y_line);
-            vector<string> right = wrap(c_line);
-            size_t max_rows = max(left.size(), right.size());
-
-            for (size_t i = 0; i < max_rows; i++) {
-                string l = (i < left.size()) ? left[i] : "";
-                string r = (i < right.size()) ? right[i] : "";
-
-                auto [l_out, r_out, l_extra, r_extra] = diff_strings(l, r);
-
-                int l_pad = col_width - (int)l.size() - l_extra;
-                int r_pad = col_width - (int)r.size() - r_extra;
-
-                printf("%s%*s  |  %s%*s\n", l_out.c_str(), l_pad, "",
-                       r_out.c_str(), r_pad, "");
-
-                if (single_diff)
-                    exit(0);
-            }
-        }
-        line_number++;
+  auto wrap = [col_width](const string &s) {
+    vector<string> chunks;
+    for (size_t i = 0; i < s.size(); i += col_width) {
+      chunks.push_back(s.substr(i, col_width));
     }
+    if (chunks.empty())
+      chunks.push_back("");
+    return chunks;
+  };
+
+  while (line_number < MAX_DIFF_LINES) {
+    bool got_yours = static_cast<bool>(getline(yours, y_line));
+    bool got_correct = static_cast<bool>(getline(correct, c_line));
+
+    if (!got_yours && !got_correct)
+      break;
+
+    if (!got_yours) y_line = "";
+    if (!got_correct) c_line = "";
+
+    if (y_line != c_line || all_lines) {
+      if (!diff_found) {
+        int l_pad = col_width - (int)yours_label.size();
+        int r_pad = col_width - (int)correct_label.size();
+        printf("%s%*s     %s%*s\n", yours_label.c_str(), l_pad, "",
+               correct_label.c_str(), r_pad, "");
+        diff_found = true;
+      }
+
+      vector<string> left = wrap(y_line);
+      vector<string> right = wrap(c_line);
+      size_t max_rows = max(left.size(), right.size());
+
+      for (size_t i = 0; i < max_rows; i++) {
+        string l = (i < left.size()) ? left[i] : "";
+        string r = (i < right.size()) ? right[i] : "";
+
+        auto [l_out, r_out, l_extra, r_extra] = diff_strings(l, r);
+
+        int l_pad = col_width - (int)l.size() - l_extra;
+        int r_pad = col_width - (int)r.size() - r_extra;
+
+        printf("%s%*s  |  %s%*s\n", l_out.c_str(), l_pad, "", r_out.c_str(),
+               r_pad, "");
+
+        if (single_diff)
+          exit(0);
+      }
+    }
+    line_number++;
+  }
 }
 
 void self_update() {
-    auto [json, status] = exec_output("curl -s https://api.github.com/repos/jamesgarrick/gsr/releases/latest");
-    if (status != 0) {
-        cerr << "Failed to check for updates" << endl;
-        return;
-    }
+  auto [json, status] = exec_output(
+      "curl -s https://api.github.com/repos/jamesgarrick/gsr/releases/latest");
+  if (status != 0) {
+    cerr << "Failed to check for updates" << endl;
+    return;
+  }
 
-    // parse json for tag
-    size_t pos = json.find("\"tag_name\"");
-    if (pos == string::npos) {
-        cerr << "No releases found" << endl;
-        return;
-    }
-    size_t start = json.find("\"", pos + 10) + 1;
-    size_t end = json.find("\"", start);
-    string latest = json.substr(start, end - start);
+  // parse json for tag
+  size_t pos = json.find("\"tag_name\"");
+  if (pos == string::npos) {
+    cerr << "No releases found" << endl;
+    return;
+  }
+  size_t start = json.find("\"", pos + 10) + 1;
+  size_t end = json.find("\"", start);
+  string latest = json.substr(start, end - start);
 
-    if (latest == VERSION) {
-        cout << "Already up to date (" << VERSION << ")" << endl;
-        return;
-    }
+  if (latest == VERSION) {
+    cout << "Already up to date (" << VERSION << ")" << endl;
+    return;
+  }
 
-    cout << "Current: " << VERSION << " -> Latest: " << latest << endl;
-    cout << "Update? [y/N] ";
+  cout << "Current: " << VERSION << " -> Latest: " << latest << endl;
+  cout << "Update? [y/N] ";
 
-    char c;
-    cin >> c;
-    if (tolower(c) != 'y') {
-        cout << "Cancelled" << endl;
-        return;
-    }
+  char c;
+  cin >> c;
+  if (tolower(c) != 'y') {
+    cout << "Cancelled" << endl;
+    return;
+  }
 
-    string install_path = string(getenv("HOME")) + "/.local/bin/gsr";
-    string temp_path = install_path + "~";
-    string url = "https://github.com/jamesgarrick/gsr/releases/download/" + latest + "/gsr";
+  string install_path = string(getenv("HOME")) + "/.local/bin/gsr";
+  string temp_path = install_path + "~";
+  string url = "https://github.com/jamesgarrick/gsr/releases/download/" +
+               latest + "/gsr";
 
-    // download new version
-    cout << "Downloading..." << endl;
-    string dl_cmd = "curl -sL " + url + " -o " + temp_path;
-    auto [dl_out, dl_status] = exec_output(dl_cmd);
-    if (dl_status != 0) {
-        cerr << "Download failed" << endl;
-        remove(temp_path.c_str());
-        return;
-    }
+  // download new version
+  cout << "Downloading..." << endl;
+  string dl_cmd = "curl -sL " + url + " -o " + temp_path;
+  auto [dl_out, dl_status] = exec_output(dl_cmd);
+  if (dl_status != 0) {
+    cerr << "Download failed" << endl;
+    remove(temp_path.c_str());
+    return;
+  }
 
-    // make executable
-    chmod(temp_path.c_str(), 0755);
+  // make executable
+  chmod(temp_path.c_str(), 0755);
 
-    // swap with old version
-    remove(install_path.c_str());
-    rename(temp_path.c_str(), install_path.c_str());
+  // swap with old version
+  remove(install_path.c_str());
+  rename(temp_path.c_str(), install_path.c_str());
 
-    cout << "Updated to " << latest << endl;
+  cout << "Updated to " << latest << endl;
 }
 
 void check_for_update() {
-    string cache_dir = string(getenv("HOME")) + "/.cache/gsr";
-    string timestamp_file = cache_dir + "/last_update_check";
+  string cache_dir = string(getenv("HOME")) + "/.cache/gsr";
+  string timestamp_file = cache_dir + "/last_update_check";
 
-    // create cache if doesnt exist
-    mkdir(cache_dir.c_str(), 0755);
+  // create cache if doesnt exist
+  mkdir(cache_dir.c_str(), 0755);
 
-    struct stat st;
-    if (stat(timestamp_file.c_str(), &st) == 0) {
-        time_t now = time(nullptr);
-        time_t last_check = st.st_mtime;
-        double hours = difftime(now, last_check) / 3600.0;
+  struct stat st;
+  if (stat(timestamp_file.c_str(), &st) == 0) {
+    time_t now = time(nullptr);
+    time_t last_check = st.st_mtime;
+    double hours = difftime(now, last_check) / 3600.0;
 
-        if (hours < AUTO_UPDATE_CHECK_INTERVAL_HOURS) {
-            return;
-        }
+    if (hours < AUTO_UPDATE_CHECK_INTERVAL_HOURS) {
+      return;
     }
+  }
 
-    ofstream(timestamp_file).close();
+  ofstream(timestamp_file).close();
 
-    // check for new release
-    auto [json, status] = exec_output("curl -s --max-time 2 https://api.github.com/repos/jamesgarrick/gsr/releases/latest 2>/dev/null");
-    if (status != 0) return;
+  // check for new release
+  auto [json, status] = exec_output("curl -s --max-time 2 "
+                                    "https://api.github.com/repos/jamesgarrick/"
+                                    "gsr/releases/latest 2>/dev/null");
+  if (status != 0)
+    return;
 
-    // get tag
-    size_t pos = json.find("\"tag_name\"");
-    if (pos == string::npos) return;
-    size_t start = json.find("\"", pos + 10) + 1;
-    size_t end = json.find("\"", start);
-    string latest = json.substr(start, end - start);
+  // get tag
+  size_t pos = json.find("\"tag_name\"");
+  if (pos == string::npos)
+    return;
+  size_t start = json.find("\"", pos + 10) + 1;
+  size_t end = json.find("\"", start);
+  string latest = json.substr(start, end - start);
 
-    if (latest != VERSION && !latest.empty()) {
-        cerr << "Update available: " << VERSION << " -> " << latest
-             << " (run gsr -u to update)\n\n";
-    }
+  if (latest != VERSION && !latest.empty()) {
+    cerr << "Update available: " << VERSION << " -> " << latest
+         << " (run gsr -u to update)\n\n";
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -396,7 +395,7 @@ int main(int argc, char *argv[]) {
       cout << "Usage: gsr [options] [class/lab] gradescript#n\n"
            << "  -a, --all, -y     Show all lines\n"
            << "  -s, --single      Show only one diff\n";
-           // gradescript# == 0 = run_all
+      // gradescript# == 0 = run_all
       return 0;
     case 'v':
       cout << VERSION << endl;
@@ -433,16 +432,16 @@ int main(int argc, char *argv[]) {
 
   int required_args = lab_found_auto ? 1 : 2;
   if (argc - optind < required_args) {
-      cout << "Usage: gsr [options] " << (lab_found_auto ? "" : "[class/lab] ") << "gradescript#\n";
-      return 1;
+    cout << "Usage: gsr [options] " << (lab_found_auto ? "" : "[class/lab] ")
+         << "gradescript#\n";
+    return 1;
   }
   string gradescript_num;
 
-
   if (!lab_found_auto) {
-      lab = argv[optind];
-      gradescript_num = argv[optind + 1];
-      lab_file_it = class_data.find(lab);
+    lab = argv[optind];
+    gradescript_num = argv[optind + 1];
+    lab_file_it = class_data.find(lab);
   } else {
     gradescript_num = argv[optind];
   }
@@ -463,8 +462,8 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   } else {
-    auto [compile_output, compile_status] = exec_output(
-        COMPILE_OPTS + program + " " + lab_file + " 2>&1");
+    auto [compile_output, compile_status] =
+        exec_output(COMPILE_OPTS + program + " " + lab_file + " 2>&1");
     if (compile_status != 0) {
       cerr << "Compilation failed:\n" << compile_output << endl;
       return 1;
@@ -472,8 +471,8 @@ int main(int argc, char *argv[]) {
   }
 
   if (gradescript_num == "0") {
-     exec_output(gradeall, true);
-     return 0;
+    exec_output(gradeall, true);
+    return 0;
   }
 
   cout << gradescript + " " + gradescript_num << endl;
@@ -522,8 +521,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  display_diff(y_out_file, c_out_file, "Your output:", "Correct output:",
-               all_lines, single_diff);
+  display_diff(y_out_file, c_out_file,
+               "Your output:", "Correct output:", all_lines, single_diff);
 
   ifstream y_err_file(y_err);
   ifstream c_err_file(c_err);
@@ -533,8 +532,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  display_diff(y_err_file, c_err_file, "Your error:", "Correct error:",
-               all_lines, single_diff);
+  display_diff(y_err_file, c_err_file,
+               "Your error:", "Correct error:", all_lines, single_diff);
 
   return 0;
 }
