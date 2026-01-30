@@ -9,6 +9,15 @@
 
 ## Installation
 
+### Quick Install
+
+One-line install:
+```bash
+curl -fsSL https://raw.githubusercontent.com/jamesgarrick/gsr/main/install.sh | bash
+```
+
+### Install from Source
+
 Clone git repository:
 ```bash
 git clone https://github.com/jamesgarrick/gsr.git
